@@ -6,6 +6,4 @@ buildCommand = "npm run install:all && npm run build"
 startCommand = "npm run start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-
-[[deploy.healthcheckPath]]
-path = "/api/health"
+healthcheckPath = "/api/health"
