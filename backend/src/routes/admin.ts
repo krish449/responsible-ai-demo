@@ -8,13 +8,13 @@ export const adminRouter = Router();
 adminRouter.use(requireAdmin);
 
 // GET /api/admin/users — list all registered users
-adminRouter.get("/users", (_req: Request, res: Response) => {
-  const users = userQueries.all.all();
+adminRouter.get("/users", async (_req: Request, res: Response) => {
+  const users = await userQueries.all();
   res.json({ users });
 });
 
 // GET /api/admin/quiz-attempts — all quiz attempts with user info
-adminRouter.get("/quiz-attempts", (_req: Request, res: Response) => {
-  const attempts = quizQueries.all.all();
+adminRouter.get("/quiz-attempts", async (_req: Request, res: Response) => {
+  const attempts = await quizQueries.all();
   res.json({ attempts });
 });

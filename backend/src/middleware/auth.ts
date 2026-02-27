@@ -13,7 +13,7 @@ declare global {
 
 // ── requireAuth ───────────────────────────────────────────────────────────────
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     res.status(401).json({ error: "Authentication required" });
@@ -23,7 +23,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   const token = authHeader.slice(7);
   try {
     const payload = verifyToken(token);
-    const user = getUserById(payload.sub);
+    const user = await getUserById(payload.sub);
     if (!user) {
       res.status(401).json({ error: "User not found" });
       return;
@@ -37,12 +37,28 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
 // ── requireAdmin ──────────────────────────────────────────────────────────────
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  requireAuth(req, res, () => {
-    if (req.user?.role !== "admin") {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  try {
+    const payload = verifyToken(token);
+    const user = await getUserById(payload.sub);
+    if (!user) {
+      res.status(401).json({ error: "User not found" });
+      return;
+    }
+    if (user.role !== "admin") {
       res.status(403).json({ error: "Admin access required" });
       return;
     }
+    req.user = user;
     next();
-  });
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+  }
 }

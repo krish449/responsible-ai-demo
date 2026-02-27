@@ -9,7 +9,7 @@ export const quizRouter = Router();
 quizRouter.use(requireAuth);
 
 // POST /api/quiz/attempts — save a completed quiz attempt
-quizRouter.post("/attempts", (req: Request, res: Response) => {
+quizRouter.post("/attempts", async (req: Request, res: Response) => {
   const { score, totalQuestions, percentage } = req.body;
   if (score === undefined || !totalQuestions || percentage === undefined) {
     res.status(400).json({ error: "score, totalQuestions, and percentage are required" });
@@ -17,7 +17,7 @@ quizRouter.post("/attempts", (req: Request, res: Response) => {
   }
 
   const id = uuidv4();
-  quizQueries.create.run(id, req.user!.id, score, totalQuestions, percentage);
+  await quizQueries.create(id, req.user!.id, score, totalQuestions, percentage);
 
   res.json({
     attempt: {
@@ -31,13 +31,13 @@ quizRouter.post("/attempts", (req: Request, res: Response) => {
 });
 
 // GET /api/quiz/attempts/me — get current user's attempts
-quizRouter.get("/attempts/me", (req: Request, res: Response) => {
-  const attempts = quizQueries.byUser.all(req.user!.id);
+quizRouter.get("/attempts/me", async (req: Request, res: Response) => {
+  const attempts = await quizQueries.byUser(req.user!.id);
   res.json({ attempts });
 });
 
 // GET /api/quiz/leaderboard — top scores across all users
-quizRouter.get("/leaderboard", (req: Request, res: Response) => {
-  const leaderboard = quizQueries.leaderboard.all();
+quizRouter.get("/leaderboard", async (_req: Request, res: Response) => {
+  const leaderboard = await quizQueries.leaderboard();
   res.json({ leaderboard });
 });

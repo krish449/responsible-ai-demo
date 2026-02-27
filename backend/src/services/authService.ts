@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import { v4 as uuidv4 } from "uuid";
-import { db, userQueries, UserRow } from "../db/database";
+import { userQueries, UserRow } from "../db/database";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
 const JWT_EXPIRES_IN = "7d";
@@ -49,7 +49,6 @@ export async function register(
   password: string,
   email?: string
 ): Promise<{ token: string; user: PublicUser }> {
-  // Validate username length/format
   if (!username || username.length < 3 || username.length > 32) {
     throw new Error("Username must be 3–32 characters");
   }
@@ -60,22 +59,21 @@ export async function register(
     throw new Error("Password must be at least 6 characters");
   }
 
-  // Check uniqueness
-  if (userQueries.findByUsername.get(username)) {
+  if (await userQueries.findByUsername(username)) {
     throw new Error("Username already taken");
   }
-  if (email && userQueries.findByEmail.get(email)) {
+  if (email && (await userQueries.findByEmail(email))) {
     throw new Error("Email already registered");
   }
 
   const hash = await bcrypt.hash(password, 12);
   const id = uuidv4();
-  userQueries.create.run(id, username, email ?? null, hash, null, "user");
-  userQueries.updateLastLogin.run(id);
+  await userQueries.create(id, username, email ?? null, hash, null, "user");
+  await userQueries.updateLastLogin(id);
 
-  const row = userQueries.findById.get(id) as UserRow;
+  const row = await userQueries.findById(id);
   const token = signToken(id);
-  return { token, user: toPublicUser(row) };
+  return { token, user: toPublicUser(row!) };
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────────
@@ -84,10 +82,9 @@ export async function login(
   usernameOrEmail: string,
   password: string
 ): Promise<{ token: string; user: PublicUser }> {
-  // Try username first, then email
-  let row = userQueries.findByUsername.get(usernameOrEmail) as UserRow | undefined;
+  let row = await userQueries.findByUsername(usernameOrEmail);
   if (!row) {
-    row = userQueries.findByEmail.get(usernameOrEmail) as UserRow | undefined;
+    row = await userQueries.findByEmail(usernameOrEmail);
   }
 
   if (!row || !row.password_hash) {
@@ -99,7 +96,7 @@ export async function login(
     throw new Error("Invalid username or password");
   }
 
-  userQueries.updateLastLogin.run(row.id);
+  await userQueries.updateLastLogin(row.id);
   const token = signToken(row.id);
   return { token, user: toPublicUser(row) };
 }
@@ -128,41 +125,37 @@ export async function googleAuth(
   const email = payload.email;
   const displayName = payload.given_name ?? payload.name ?? "user";
 
-  // Find existing user by Google ID
-  let row = userQueries.findByGoogleId.get(googleId) as UserRow | undefined;
+  let row = await userQueries.findByGoogleId(googleId);
 
   if (!row && email) {
-    // Link to existing account with same email
-    const existing = userQueries.findByEmail.get(email) as UserRow | undefined;
+    const existing = await userQueries.findByEmail(email);
     if (existing) {
-      userQueries.linkGoogleId.run(googleId, existing.id);
-      row = userQueries.findById.get(existing.id) as UserRow;
+      await userQueries.linkGoogleId(googleId, existing.id);
+      row = await userQueries.findById(existing.id);
     }
   }
 
   if (!row) {
-    // Create new account
     let username = displayName.toLowerCase().replace(/[^a-z0-9_.-]/g, "_");
     if (username.length < 3) username = `user_${username}`;
-    // Ensure uniqueness
     let attempt = username;
     let counter = 1;
-    while (userQueries.findByUsername.get(attempt)) {
+    while (await userQueries.findByUsername(attempt)) {
       attempt = `${username}${counter++}`;
     }
     const id = uuidv4();
-    userQueries.create.run(id, attempt, email ?? null, null, googleId, "user");
-    row = userQueries.findById.get(id) as UserRow;
+    await userQueries.create(id, attempt, email ?? null, null, googleId, "user");
+    row = await userQueries.findById(id);
   }
 
-  userQueries.updateLastLogin.run(row.id);
-  const token = signToken(row.id);
-  return { token, user: toPublicUser(row) };
+  await userQueries.updateLastLogin(row!.id);
+  const token = signToken(row!.id);
+  return { token, user: toPublicUser(row!) };
 }
 
 // ── Get current user ───────────────────────────────────────────────────────────
 
-export function getUserById(id: string): PublicUser | null {
-  const row = userQueries.findById.get(id) as UserRow | undefined;
+export async function getUserById(id: string): Promise<PublicUser | null> {
+  const row = await userQueries.findById(id);
   return row ? toPublicUser(row) : null;
 }

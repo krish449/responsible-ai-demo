@@ -9,7 +9,7 @@ import { authRouter } from "./routes/auth";
 import { quizRouter } from "./routes/quiz";
 import { adminRouter } from "./routes/admin";
 import { requireAuth } from "./middleware/auth";
-import "./db/database"; // initialize DB on startup
+import { initDB } from "./db/database";
 
 dotenv.config();
 
@@ -55,10 +55,15 @@ if (IS_PROD) {
 }
 
 // ── Start server ──────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n🛡️  Responsible AI Demo Backend`);
-  console.log(`   Running on http://localhost:${PORT}`);
-  console.log(`   API Health: http://localhost:${PORT}/api/health\n`);
-});
+async function main() {
+  await initDB();
+  app.listen(PORT, () => {
+    console.log(`\n🛡️  Responsible AI Demo Backend`);
+    console.log(`   Running on http://localhost:${PORT}`);
+    console.log(`   API Health: http://localhost:${PORT}/api/health\n`);
+  });
+}
+
+main().catch(console.error);
 
 export default app;
