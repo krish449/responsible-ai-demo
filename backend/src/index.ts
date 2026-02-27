@@ -44,8 +44,11 @@ app.get("/api/health", (_req, res) => {
 });
 
 // ── Serve frontend in production ──────────────────────────────────────────────
-if (IS_PROD) {
-  const frontendDist = path.join(__dirname, "../../frontend/dist");
+const frontendDist = path.join(__dirname, "../../frontend/dist");
+console.log(`[static] IS_PROD=${IS_PROD} __dirname=${__dirname}`);
+console.log(`[static] frontendDist=${frontendDist} exists=${fs.existsSync(frontendDist)}`);
+
+if (IS_PROD || fs.existsSync(frontendDist)) {
   if (fs.existsSync(frontendDist)) {
     app.use(express.static(frontendDist));
     app.get("*", (_req, res) => {
